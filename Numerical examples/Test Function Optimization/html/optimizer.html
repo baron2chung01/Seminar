@@ -1,0 +1,299 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>optimizer</title><meta name="generator" content="MATLAB 9.10"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2021-10-18"><meta name="DC.source" content="optimizer.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="keyword">function</span> [xopt,fopt,niter,gnorm,dx,terminateBy,runtime] = optimizer(x0,funcName,method,mode)
+
+<span class="comment">% funcName: name of test function</span>
+<span class="comment">% method: grad/newt</span>
+<span class="comment">% mode: plot/time</span>
+
+
+<span class="comment">% one of the x0 choice: [3 3]'</span>
+
+<span class="comment">% minimum allowed gnorm</span>
+dgmin = 1e-4;
+<span class="comment">% maximum number of allowed iterations</span>
+maxiter = 1000;
+<span class="comment">% step size for gradient descent( 0.33 causes instability, 0.2 quite accurate)</span>
+alpha = 0.2;
+<span class="comment">% minimum allowed difference of x_n+1-x_n</span>
+dxmin = 1e-4;
+<span class="comment">% initialize gradient norm, optimization vector, iteration counter, perturbation</span>
+gnorm = inf; x = x0; niter = 0; dx = inf;
+<span class="comment">% define the objective function</span>
+
+[f1 f searchDom] = testFunc(funcName);
+
+<span class="comment">% both method requires computing gradient</span>
+g = gradient(f);
+g1 = matlabFunction(g);
+g1 = func2str(g1);
+g1 = replace(g1,<span class="string">"@(x1,x2)"</span>,<span class="string">"@(x)"</span>);
+g1 = replace(g1,[<span class="string">"x1"</span>,<span class="string">"x2"</span>],[<span class="string">"x(1)"</span>,<span class="string">"x(2)"</span>]);
+g1 = str2func(g1);
+<span class="comment">% if method='newt', need to compute hessian</span>
+<span class="keyword">if</span> method == <span class="string">"newt"</span>
+    hess = hessian(f);
+    h1 = inv(hess);
+    h1 = matlabFunction(h1);
+    h1 = func2str(h1);
+    h1 = replace(h1,<span class="string">"@(x1,x2)"</span>,<span class="string">"@(x)"</span>);
+    h1 = replace(h1,[<span class="string">"x1"</span>,<span class="string">"x2"</span>],[<span class="string">"x(1)"</span>,<span class="string">"x(2)"</span>]);
+    h1 = str2func(h1);
+<span class="keyword">end</span>
+<span class="comment">% plot objective function contours for visualization:</span>
+
+<span class="comment">% redefine objective function syntax for use with optimization:</span>
+f2 = @(x) f1(x(1),x(2));
+
+<span class="keyword">if</span> mode == <span class="string">"time"</span>
+    iniTime = clock
+<span class="keyword">end</span>
+
+<span class="keyword">while</span> and(gnorm&gt;=dgmin, and(niter &lt;= maxiter, dx &gt;= dxmin))
+    <span class="comment">% if method = 'newt', need tocalculate hessian inverse:</span>
+
+    <span class="comment">% both method requires calculating gradient:</span>
+    g = g1(x);
+    gnorm = norm(g);
+    <span class="comment">% take gradient descent step:</span>
+    <span class="keyword">if</span> method == <span class="string">"grad"</span>
+        xnew = x - alpha*g
+    <span class="keyword">end</span>
+    <span class="comment">% take newton's method step:</span>
+    <span class="keyword">if</span> method == <span class="string">"newt"</span>
+        hess = h1(x);
+        xnew = x - hess*g
+    <span class="keyword">end</span>
+    <span class="comment">% check step</span>
+    <span class="keyword">if</span> xnew(1) &lt; searchDom(1) || xnew(1) &gt; searchDom(2) || xnew(2) &lt; searchDom(1) || xnew(2) &gt; searchDom(2)
+        display([<span class="string">'Number of iterations: '</span> num2str(niter)])
+        <span class="comment">% error('x is out of search domain')</span>
+    <span class="keyword">end</span>
+    <span class="comment">% plot current point</span>
+    <span class="keyword">if</span> mode == <span class="string">"plot"</span>
+        figure(1); fcontour(f,searchDom); axis <span class="string">equal</span>; hold <span class="string">on</span>
+        plot([x(1) xnew(1)],[x(2) xnew(2)],<span class="string">'-*'</span>)
+
+        <span class="comment">% making gif</span>
+        <span class="keyword">if</span> niter == 0
+            filepath = sprintf(<span class="string">'gif/%s_%s_%s_%s.gif'</span>,funcName,method,mat2str(x0),num2str(alpha));
+            gif(filepath,<span class="string">'frame'</span>,gcf)
+        <span class="keyword">else</span>
+            gif(<span class="string">'frame'</span>,gcf)
+        <span class="keyword">end</span>
+
+        <span class="comment">% plot function value vs iteration</span>
+        figure(2);
+        hold <span class="string">on</span>
+        plot(niter,f2(x),<span class="string">'-*'</span>)
+    <span class="keyword">end</span>
+    <span class="comment">% update termination metrics</span>
+    niter = niter + 1;
+    dx = norm(xnew-x);
+    x = xnew;
+
+<span class="keyword">end</span>
+hold <span class="string">off</span>
+<span class="comment">% determine what causes termination</span>
+<span class="keyword">if</span> gnorm &lt; dgmin
+    terminateBy = <span class="string">'Norm of gradient too small'</span>
+<span class="keyword">elseif</span> dx &lt; dxmin
+    terminateBy = <span class="string">'Difference between x_n+1 and x_n too small'</span>
+<span class="keyword">elseif</span> niter &gt; maxiter
+    terminateBy = <span class="string">'Maximum number of iterations reached'</span>
+<span class="keyword">end</span>
+xopt = x
+fopt = f2(xopt)
+niter = niter - 1
+<span class="keyword">if</span> mode == <span class="string">"time"</span>
+    runtime = double(etime(clock, iniTime))
+<span class="keyword">elseif</span> mode == <span class="string">"plot"</span>
+    runtime = <span class="string">''</span>
+<span class="keyword">end</span>
+<span class="keyword">end</span>
+</pre><pre class="codeoutput error">Not enough input arguments.
+
+Error in optimizer (line 19)
+gnorm = inf; x = x0; niter = 0; dx = inf;
+</pre><p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2021a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+function [xopt,fopt,niter,gnorm,dx,terminateBy,runtime] = optimizer(x0,funcName,method,mode)
+
+% funcName: name of test function
+% method: grad/newt
+% mode: plot/time
+
+
+% one of the x0 choice: [3 3]'
+
+% minimum allowed gnorm
+dgmin = 1e-4;
+% maximum number of allowed iterations
+maxiter = 1000;
+% step size for gradient descent( 0.33 causes instability, 0.2 quite accurate)
+alpha = 0.2;
+% minimum allowed difference of x_n+1-x_n
+dxmin = 1e-4;
+% initialize gradient norm, optimization vector, iteration counter, perturbation
+gnorm = inf; x = x0; niter = 0; dx = inf;
+% define the objective function
+
+[f1 f searchDom] = testFunc(funcName);
+
+% both method requires computing gradient
+g = gradient(f);
+g1 = matlabFunction(g);
+g1 = func2str(g1);
+g1 = replace(g1,"@(x1,x2)","@(x)");
+g1 = replace(g1,["x1","x2"],["x(1)","x(2)"]);
+g1 = str2func(g1);
+% if method='newt', need to compute hessian
+if method == "newt"
+    hess = hessian(f);
+    h1 = inv(hess);
+    h1 = matlabFunction(h1);
+    h1 = func2str(h1);
+    h1 = replace(h1,"@(x1,x2)","@(x)");
+    h1 = replace(h1,["x1","x2"],["x(1)","x(2)"]);
+    h1 = str2func(h1);
+end
+% plot objective function contours for visualization:
+
+% redefine objective function syntax for use with optimization:
+f2 = @(x) f1(x(1),x(2));
+
+if mode == "time"
+    iniTime = clock
+end
+
+while and(gnorm>=dgmin, and(niter <= maxiter, dx >= dxmin))
+    % if method = 'newt', need tocalculate hessian inverse:
+    
+    % both method requires calculating gradient:
+    g = g1(x);
+    gnorm = norm(g);
+    % take gradient descent step:
+    if method == "grad"
+        xnew = x - alpha*g
+    end
+    % take newton's method step:
+    if method == "newt"
+        hess = h1(x);
+        xnew = x - hess*g
+    end
+    % check step
+    if xnew(1) < searchDom(1) || xnew(1) > searchDom(2) || xnew(2) < searchDom(1) || xnew(2) > searchDom(2)
+        display(['Number of iterations: ' num2str(niter)])
+        % error('x is out of search domain')
+    end
+    % plot current point
+    if mode == "plot"
+        figure(1); fcontour(f,searchDom); axis equal; hold on
+        plot([x(1) xnew(1)],[x(2) xnew(2)],'-*')
+        
+        % making gif
+        if niter == 0
+            filepath = sprintf('gif/%s_%s_%s_%s.gif',funcName,method,mat2str(x0),num2str(alpha));
+            gif(filepath,'frame',gcf)
+        else
+            gif('frame',gcf)
+        end
+
+        % plot function value vs iteration
+        figure(2);
+        hold on
+        plot(niter,f2(x),'-*')
+    end
+    % update termination metrics
+    niter = niter + 1;
+    dx = norm(xnew-x);
+    x = xnew;
+    
+end
+hold off
+% determine what causes termination
+if gnorm < dgmin
+    terminateBy = 'Norm of gradient too small'
+elseif dx < dxmin
+    terminateBy = 'Difference between x_n+1 and x_n too small'
+elseif niter > maxiter
+    terminateBy = 'Maximum number of iterations reached'
+end
+xopt = x
+fopt = f2(xopt)
+niter = niter - 1
+if mode == "time"
+    runtime = double(etime(clock, iniTime))
+elseif mode == "plot"
+    runtime = ''
+end
+end
+##### SOURCE END #####
+--></body></html>
